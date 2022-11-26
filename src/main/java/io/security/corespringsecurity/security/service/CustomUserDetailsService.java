@@ -1,4 +1,4 @@
-package io.security.corespringsecurity.service;
+package io.security.corespringsecurity.security.service;
 
 import java.util.ArrayList;
 import java.util.List;

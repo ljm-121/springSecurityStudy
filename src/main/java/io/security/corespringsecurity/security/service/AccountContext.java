@@ -1,4 +1,4 @@
-package io.security.corespringsecurity.service;
+package io.security.corespringsecurity.security.service;
 
 import java.util.Collection;
 

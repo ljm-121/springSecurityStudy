@@ -1,15 +1,17 @@
-package io.security.corespringsecurity.provider;
+package io.security.corespringsecurity.security.provider;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.authentication.InsufficientAuthenticationException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
-import io.security.corespringsecurity.service.AccountContext;
+import io.security.corespringsecurity.security.common.FormWebAuthenticationDetails;
+import io.security.corespringsecurity.security.service.AccountContext;
 
 public class CustomAuthenticationProvider implements AuthenticationProvider{
 
@@ -34,10 +36,14 @@ public class CustomAuthenticationProvider implements AuthenticationProvider{
 		}
 
 		//추가적인 정책에 따라 검증을 추가한다.
+		FormWebAuthenticationDetails formWebAuthenticationDetails = (FormWebAuthenticationDetails) authentication.getDetails();
+		String secretKey = formWebAuthenticationDetails.getSecretKey();
 		
-		UsernamePasswordAuthenticationToken authenticationToken = new UsernamePasswordAuthenticationToken(accountContext.getAccount(), null, accountContext.getAuthorities());
-
-		return authenticationToken;
+		if(secretKey == null || !"secret".equals(secretKey)) {
+			throw new InsufficientAuthenticationException("InsufficientAuthenticationException");
+		}
+		
+		return new UsernamePasswordAuthenticationToken(accountContext.getAccount(), null, accountContext.getAuthorities());
 	}
 
 	@Override
