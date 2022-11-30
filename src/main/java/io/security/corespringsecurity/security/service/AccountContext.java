@@ -5,7 +5,7 @@ import java.util.Collection;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.User;
 
-import io.security.corespringsecurity.domain.Account;
+import io.security.corespringsecurity.domain.entity.Account;
 
 public class AccountContext extends User {
 

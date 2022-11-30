@@ -29,7 +29,7 @@ public class UrlResourcesMapFactoryBean implements FactoryBean<LinkedHashMap<Req
 	}
 
 	private void init() {
-		resourceMap = securityResourceService.getResouceList();
+		resourceMap = securityResourceService.getResourceList();
 		
 	}
 

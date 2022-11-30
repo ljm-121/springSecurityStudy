@@ -1,5 +1,5 @@
 
-package io.security.corespringsecurity.domain;
+package io.security.corespringsecurity.domain.entity;
 
 import lombok.*;
 

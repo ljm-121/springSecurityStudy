@@ -19,13 +19,16 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.access.AccessDeniedHandler;
 import org.springframework.security.web.access.intercept.FilterInvocationSecurityMetadataSource;
 import org.springframework.security.web.access.intercept.FilterSecurityInterceptor;
+import org.springframework.security.web.authentication.AuthenticationFailureHandler;
+import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
 
 import io.security.corespringsecurity.security.factory.UrlResourcesMapFactoryBean;
+import io.security.corespringsecurity.security.filter.PermitAllFilter;
 import io.security.corespringsecurity.security.handler.CustomAccessDeniedHandler;
 import io.security.corespringsecurity.security.handler.CustomAuthenticationFailureHandler;
 import io.security.corespringsecurity.security.handler.CustomAuthenticationSuccessHandler;
 import io.security.corespringsecurity.security.metadatasource.UrlFilterInvocationSecurityMetadataSource;
-import io.security.corespringsecurity.security.provider.CustomAuthenticationProvider;
+import io.security.corespringsecurity.security.provider.FormAuthenticationProvider;
 import io.security.corespringsecurity.service.SecurityResourceService;
 
 import java.util.Arrays;
@@ -38,6 +41,11 @@ import org.springframework.boot.autoconfigure.security.servlet.PathRequest;
 @EnableWebSecurity
 public class SecurityConfig extends WebSecurityConfigurerAdapter{
 
+    @Autowired
+    private AuthenticationSuccessHandler formAuthenticationSuccessHandler;
+    @Autowired
+    private AuthenticationFailureHandler formAuthenticationFailureHandler;
+    
 	@Autowired
 	private CustomAuthenticationSuccessHandler customAuthenticationSuccessHandler;
 	
@@ -50,6 +58,8 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter{
 	@Autowired
 	private SecurityResourceService securityResourceService;
 	
+	private String[] permitAllResources = {"/", "/login", "/user/login/**"};
+    
 	//스프링 시큐리티 기본 설정 클래스 -> 커스텀 (인증 및 validation 검사)
 	@Override
 	public void configure(AuthenticationManagerBuilder auth) throws Exception {
@@ -59,7 +69,7 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter{
 	//인증 및 validation 검사 
 	@Bean
 	public AuthenticationProvider authenticationProvider() {
-		return new CustomAuthenticationProvider();
+		return new FormAuthenticationProvider(passwordEncoder());
 	}
 
 	//static 폴더는 검사x
@@ -82,24 +92,24 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter{
 	
 	@Override
 	protected void configure(final HttpSecurity http) throws Exception {
-		((HttpSecurity) http
-			.authorizeRequests()
-			.antMatchers("/","/users","user/login/**","/login*").permitAll()
-			.anyRequest().authenticated()
-		.and()//인가예외
-			.exceptionHandling()
-			.accessDeniedHandler(accessDeniedHandler())
-		.and()//폼로그인설정
-			.formLogin()
+		http
+        .authorizeRequests()
+        ;
+		
+		http
+			.formLogin()//폼로그인설정
 			.loginPage("/login")
 			.loginProcessingUrl("/login_proc")
 			.defaultSuccessUrl("/")
 			.authenticationDetailsSource(authenticationDetailsSource)
-			.successHandler(customAuthenticationSuccessHandler)
-			.failureHandler(customAuthenticationFailureHandler)
-			.permitAll()
-		.and())
-			.addFilterBefore(customFilterSecurityInterceptor(), FilterSecurityInterceptor.class)
+			.successHandler(formAuthenticationSuccessHandler)
+			.failureHandler(formAuthenticationFailureHandler)
+			.permitAll();
+		http//인가예외
+			.exceptionHandling()
+			.accessDeniedHandler(accessDeniedHandler())
+		.and()
+			.addFilterAt(customFilterSecurityInterceptor(), FilterSecurityInterceptor.class)
 		;
 	}
 
@@ -112,6 +122,7 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter{
 	}
 	
 	//스프링 시큐리티 기본 설정 클래스 -> 커스텀 // 인가 예외 설정
+	/*@Bean
 	public FilterSecurityInterceptor customFilterSecurityInterceptor() throws Exception {
 		
 		FilterSecurityInterceptor filterSecurityInterceptor = new FilterSecurityInterceptor();
@@ -120,7 +131,17 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter{
 		filterSecurityInterceptor.setAuthenticationManager(authenticationManagerBean());
 		
 		return filterSecurityInterceptor;
-	}
+	}*/
+	
+	@Bean
+    public PermitAllFilter customFilterSecurityInterceptor() throws Exception {
+
+        PermitAllFilter permitAllFilter = new PermitAllFilter(permitAllResources);
+        permitAllFilter.setSecurityMetadataSource(urlFilterInvocationSecurityMetadataSource());
+        permitAllFilter.setAccessDecisionManager(affirmativeBased());
+        permitAllFilter.setAuthenticationManager(authenticationManagerBean());
+        return permitAllFilter;
+    }
 
 	@Bean
 	public AccessDecisionManager affirmativeBased() {
@@ -134,8 +155,8 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter{
 
 	//DB로부터 자원 권한 정보 저장
 	@Bean
-	public FilterInvocationSecurityMetadataSource urlFilterInvocationSecurityMetadataSource() throws Exception {
-		return new UrlFilterInvocationSecurityMetadataSource(urlResourcesMapFactoryBean().getObject());
+	public UrlFilterInvocationSecurityMetadataSource urlFilterInvocationSecurityMetadataSource() throws Exception {
+		return new UrlFilterInvocationSecurityMetadataSource(urlResourcesMapFactoryBean().getObject(), securityResourceService);
 	}
 	
 	private UrlResourcesMapFactoryBean urlResourcesMapFactoryBean() {

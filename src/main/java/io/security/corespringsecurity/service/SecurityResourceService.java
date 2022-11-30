@@ -8,10 +8,12 @@ import org.springframework.security.access.ConfigAttribute;
 import org.springframework.security.access.SecurityConfig;
 import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
 import org.springframework.security.web.util.matcher.RequestMatcher;
+import org.springframework.stereotype.Service;
 
-import io.security.corespringsecurity.domain.Resources;
+import io.security.corespringsecurity.domain.entity.Resources;
 import io.security.corespringsecurity.repository.ResourcesRepository;
 
+@Service
 public class SecurityResourceService {
 
 	private ResourcesRepository resourcesRepository;
@@ -20,7 +22,7 @@ public class SecurityResourceService {
 		this.resourcesRepository = resourcesRepository;
 	}
 
-	public LinkedHashMap<RequestMatcher, List<ConfigAttribute>> getResouceList() {
+	public LinkedHashMap<RequestMatcher, List<ConfigAttribute>> getResourceList() {
 		
 		LinkedHashMap<RequestMatcher, List<ConfigAttribute>> result = new LinkedHashMap<>();
 		List<Resources> resourcesList = resourcesRepository.findAllResources();
