@@ -59,23 +59,23 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter{
 	private SecurityResourceService securityResourceService;
 	
 	private String[] permitAllResources = {"/", "/login", "/user/login/**"};
-    
+
+	//static 폴더는 검사x
+	@Override
+	public void configure(WebSecurity web) throws Exception {
+		web.ignoring().requestMatchers(PathRequest.toStaticResources().atCommonLocations());
+	}
+	
 	//스프링 시큐리티 기본 설정 클래스 -> 커스텀 (인증 및 validation 검사)
 	@Override
 	public void configure(AuthenticationManagerBuilder auth) throws Exception {
 		auth.authenticationProvider(authenticationProvider());
 	}
 	
-	//인증 및 validation 검사 
+	//인증 및 validation 검사 authenticationDetailsSource
 	@Bean
 	public AuthenticationProvider authenticationProvider() {
 		return new FormAuthenticationProvider(passwordEncoder());
-	}
-
-	//static 폴더는 검사x
-	@Override
-	public void configure(WebSecurity web) throws Exception {
-		web.ignoring().requestMatchers(PathRequest.toStaticResources().atCommonLocations());
 	}
 	
 	//패스워드 인코딩 설정
@@ -84,7 +84,7 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter{
 		return PasswordEncoderFactories.createDelegatingPasswordEncoder();
 	}
 
-	//인증매니저
+	// 인증 매니저 셋팅 - 기본 작성
 	@Override
 	public AuthenticationManager authenticationManagerBean() throws Exception {
 		return super.authenticationManagerBean();
@@ -101,7 +101,7 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter{
 			.loginPage("/login")
 			.loginProcessingUrl("/login_proc")
 			.defaultSuccessUrl("/")
-			.authenticationDetailsSource(authenticationDetailsSource)
+			.authenticationDetailsSource(authenticationDetailsSource) // 인증이후에도 이정보들을 참조해서 사용자가 서버자원에 접근 할수 있도록 한다 FormAuthenticationDetailsSource
 			.successHandler(formAuthenticationSuccessHandler)
 			.failureHandler(formAuthenticationFailureHandler)
 			.permitAll();
@@ -109,7 +109,7 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter{
 			.exceptionHandling()
 			.accessDeniedHandler(accessDeniedHandler())
 		.and()
-			.addFilterAt(customFilterSecurityInterceptor(), FilterSecurityInterceptor.class)
+			.addFilterAt(customFilterSecurityInterceptor(), FilterSecurityInterceptor.class) //지정된 필터 보다 커스텀 필터가 먼저 실행 인증완료된 상태이면 인증 로직이 수행되지 않고 자연스럽게 통과 하기 때문에 마치 오버라이드된 것 처럼 동작하는 것으로 착각 할 수 있습니다
 		;
 	}
 
@@ -133,22 +133,26 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter{
 		return filterSecurityInterceptor;
 	}*/
 	
+	//스프링 시큐리티 기본 설정 클래스 -> 커스텀 // 인가 예외 설정 및 접근 결정자 설정
+	//FilterSecurityInterceptor -> PermitAllFilter why? permitAllResources 변수로 허용 url 손쉽게 하려고
 	@Bean
     public PermitAllFilter customFilterSecurityInterceptor() throws Exception {
 
         PermitAllFilter permitAllFilter = new PermitAllFilter(permitAllResources);
-        permitAllFilter.setSecurityMetadataSource(urlFilterInvocationSecurityMetadataSource());
-        permitAllFilter.setAccessDecisionManager(affirmativeBased());
-        permitAllFilter.setAuthenticationManager(authenticationManagerBean());
+        permitAllFilter.setSecurityMetadataSource(urlFilterInvocationSecurityMetadataSource()); //DB로부터 자원과 자원에대한 권한 정보 저장 및 인가 필터 설정 (init할 떄 설정된 것 가져오는 것으로 보임)
+        permitAllFilter.setAccessDecisionManager(affirmativeBased()); // 접근권한매니저 세팅 - 기본 작성
+        permitAllFilter.setAuthenticationManager(authenticationManagerBean()); // 인증 매니저 셋팅 - 기본 작성
         return permitAllFilter;
     }
 
+	// 접근권한매니저 세팅 - 기본 작성
 	@Bean
 	public AccessDecisionManager affirmativeBased() {
 		AffirmativeBased affirmativeBased = new AffirmativeBased(getAccessDecistionVoters());
 		return affirmativeBased;
 	}
 
+	// 접근권한매니저 세팅 - 기본 작성
 	private List<AccessDecisionVoter<?>> getAccessDecistionVoters() {
 		return Arrays.asList(new RoleVoter());
 	}
