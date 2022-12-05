@@ -1,10 +1,18 @@
 package io.security.corespringsecurity.security.configs;
 
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.autoconfigure.security.servlet.PathRequest;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.access.AccessDecisionManager;
 import org.springframework.security.access.AccessDecisionVoter;
+import org.springframework.security.access.hierarchicalroles.RoleHierarchyImpl;
 import org.springframework.security.access.vote.AffirmativeBased;
+import org.springframework.security.access.vote.RoleHierarchyVoter;
 import org.springframework.security.access.vote.RoleVoter;
 import org.springframework.security.authentication.AuthenticationDetailsSource;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -17,7 +25,6 @@ import org.springframework.security.config.annotation.web.configuration.WebSecur
 import org.springframework.security.crypto.factory.PasswordEncoderFactories;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.access.AccessDeniedHandler;
-import org.springframework.security.web.access.intercept.FilterInvocationSecurityMetadataSource;
 import org.springframework.security.web.access.intercept.FilterSecurityInterceptor;
 import org.springframework.security.web.authentication.AuthenticationFailureHandler;
 import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
@@ -29,13 +36,8 @@ import io.security.corespringsecurity.security.handler.CustomAuthenticationFailu
 import io.security.corespringsecurity.security.handler.CustomAuthenticationSuccessHandler;
 import io.security.corespringsecurity.security.metadatasource.UrlFilterInvocationSecurityMetadataSource;
 import io.security.corespringsecurity.security.provider.FormAuthenticationProvider;
+import io.security.corespringsecurity.security.voter.IpAddressVoter;
 import io.security.corespringsecurity.service.SecurityResourceService;
-
-import java.util.Arrays;
-import java.util.List;
-
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.autoconfigure.security.servlet.PathRequest;
 
 @Configuration
 @EnableWebSecurity
@@ -43,14 +45,9 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter{
 
     @Autowired
     private AuthenticationSuccessHandler formAuthenticationSuccessHandler;
+    
     @Autowired
     private AuthenticationFailureHandler formAuthenticationFailureHandler;
-    
-	@Autowired
-	private CustomAuthenticationSuccessHandler customAuthenticationSuccessHandler;
-	
-	@Autowired
-	private CustomAuthenticationFailureHandler customAuthenticationFailureHandler;
 	
 	@Autowired
 	private AuthenticationDetailsSource authenticationDetailsSource;
@@ -63,7 +60,14 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter{
 	//static 폴더는 검사x
 	@Override
 	public void configure(WebSecurity web) throws Exception {
-		web.ignoring().requestMatchers(PathRequest.toStaticResources().atCommonLocations());
+		//web.ignoring().requestMatchers(PathRequest.toStaticResources().atCommonLocations());
+		web// `/resource/` 내부 static, templates 등의 정적자원들을 "보안필터링 없이 외부공개"
+        .ignoring().antMatchers(
+              "/js/**"
+              , "/css/**"
+              , "/images/**"
+        )
+        .requestMatchers(PathRequest.toStaticResources().atCommonLocations());
 	}
 	
 	//스프링 시큐리티 기본 설정 클래스 -> 커스텀 (인증 및 validation 검사)
@@ -134,7 +138,7 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter{
 	}*/
 	
 	//스프링 시큐리티 기본 설정 클래스 -> 커스텀 // 인가 예외 설정 및 접근 결정자 설정
-	//FilterSecurityInterceptor -> PermitAllFilter why? permitAllResources 변수로 허용 url 손쉽게 하려고
+	//FilterSecurityInterceptor -> PermitAllFilter why? 허용 url 설정
 	@Bean
     public PermitAllFilter customFilterSecurityInterceptor() throws Exception {
 
@@ -154,7 +158,23 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter{
 
 	// 접근권한매니저 세팅 - 기본 작성
 	private List<AccessDecisionVoter<?>> getAccessDecistionVoters() {
-		return Arrays.asList(new RoleVoter());
+		
+		List<AccessDecisionVoter<? extends Object>> accessDecisionVoters = new ArrayList<>();
+		accessDecisionVoters.add(new IpAddressVoter(securityResourceService)); // 순서가 먼저와야함. 필터에 허용 아이피 설정 
+		accessDecisionVoters.add(roleVoter());//필터에 롤 계층 권한 셋팅 RoleVoter -> RoleHierarchyVoter
+		return accessDecisionVoters;
+	}
+
+	private AccessDecisionVoter<? extends Object> roleVoter() {
+		
+		RoleHierarchyVoter roleHierarchyVoter = new RoleHierarchyVoter(roleHierarchy());
+		return roleHierarchyVoter;
+	}
+
+	@Bean
+	public RoleHierarchyImpl roleHierarchy() {
+		RoleHierarchyImpl roleHierarchy = new RoleHierarchyImpl();
+		return roleHierarchy;
 	}
 
 	//DB로부터 자원 권한 정보 저장

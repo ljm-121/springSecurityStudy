@@ -2,8 +2,12 @@ package io.security.corespringsecurity.security.listener;
 
 import org.springframework.transaction.annotation.Transactional;
 
+import io.security.corespringsecurity.domain.entity.AccessIp;
 import io.security.corespringsecurity.domain.entity.Account;
 import io.security.corespringsecurity.domain.entity.Role;
+import io.security.corespringsecurity.domain.entity.RoleHierarchy;
+import io.security.corespringsecurity.repository.AccessIpRepository;
+import io.security.corespringsecurity.repository.RoleHierarchyRepository;
 import io.security.corespringsecurity.repository.RoleRepository;
 import io.security.corespringsecurity.repository.UserRepository;
 
@@ -28,7 +32,13 @@ public class SetupDataLoader implements ApplicationListener<ContextRefreshedEven
     private UserRepository userRepository;
 	
 	@Autowired
+	private RoleHierarchyRepository roleHierarchyRepository;
+	
+	@Autowired
     private PasswordEncoder passwordEncoder;
+	
+    @Autowired
+    private AccessIpRepository accessIpRepository;
 	
 	@Override
 	@Transactional
@@ -40,7 +50,19 @@ public class SetupDataLoader implements ApplicationListener<ContextRefreshedEven
 		
 		setupSecurityResources();
 		
+		setupAccessIpData();
+		
 		alreadySetup = true;
+	}
+
+	private void setupAccessIpData() {
+		AccessIp byIpAddress = accessIpRepository.findByIpAddress("0:0:0:0:0:0:0:1");
+        if (byIpAddress == null) {
+            AccessIp accessIp = AccessIp.builder()
+                    .ipAddress("192.168.0.19")
+            		.build();
+            accessIpRepository.save(accessIp);
+        }
 	}
 
 	private void setupSecurityResources() {
@@ -50,6 +72,8 @@ public class SetupDataLoader implements ApplicationListener<ContextRefreshedEven
 		createUserIfNotFound("admin","admin@admin.com","1234",roles);
 		Role managerRole = createRoleIfNotFound("ROLE_MANAGER", "매니저권한");
         Role userRole = createRoleIfNotFound("ROLE_USER", "사용자권한");
+        createRoleHierarchyIfNotFound(managerRole, adminRole);
+        createRoleHierarchyIfNotFound(userRole, managerRole);
 	}
 
 	@Transactional
@@ -81,4 +105,23 @@ public class SetupDataLoader implements ApplicationListener<ContextRefreshedEven
 		return roleRepository.save(role);
 	}
 
+	@Transactional
+	private void createRoleHierarchyIfNotFound(Role childRole, Role parentRole) {
+		
+		RoleHierarchy roleHierarchy = roleHierarchyRepository.findByChildName(parentRole.getRoleName());
+		if(roleHierarchy == null) {
+			roleHierarchy = RoleHierarchy.builder()
+					.childName(parentRole.getRoleName())
+					.build();
+		}
+		RoleHierarchy parentRoleHierarchy = roleHierarchyRepository.save(roleHierarchy);
+		roleHierarchy = roleHierarchyRepository.findByChildName(childRole.getRoleName());
+        if (roleHierarchy == null) {
+            roleHierarchy = RoleHierarchy.builder()
+                    .childName(childRole.getRoleName())
+                    .build();
+        }
+        RoleHierarchy childRoleHierarchy = roleHierarchyRepository.save(roleHierarchy);
+        childRoleHierarchy.setParentName(parentRoleHierarchy);
+	}
 }
